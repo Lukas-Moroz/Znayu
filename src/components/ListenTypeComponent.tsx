@@ -1,46 +1,95 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
+import { speakRussian, stopSpeaking } from '../utils/ttsPlayer';
 
-const ListenTypeComponent = ({
+interface ListenTypeComponentProps {
+  audioToPlay?: string;
+  correctAnswer: string;
+  onAnswer: (isCorrect: boolean) => void;
+}
+
+const ListenTypeComponent: React.FC<ListenTypeComponentProps> = ({
   audioToPlay,
   correctAnswer,
   onAnswer,
 }) => {
   const [userInput, setUserInput] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [sound, setSound] = useState(null);
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  // Reset state when exercise changes
+  useEffect(() => {
+    setUserInput('');
+    setSubmitted(false);
+    setIsPlayingAudio(false);
+  }, [correctAnswer]);
 
   const playAudio = async () => {
     try {
-      const { sound: audioSound } = await Audio.Sound.createAsync(
-        { uri: audioToPlay }
-      );
-      setSound(audioSound);
-      await audioSound.playAsync();
+      setIsPlayingAudio(true);
+      // Stop any ongoing TTS
+      await stopSpeaking();
+      
+      // Try to play audio file if available
+      if (audioToPlay) {
+        try {
+          if (sound) {
+            await sound.unloadAsync();
+          }
+          const { sound: audioSound } = await Audio.Sound.createAsync(
+            { uri: audioToPlay }
+          );
+          setSound(audioSound);
+          await audioSound.playAsync();
+          // Wait for playback to finish (rough estimate)
+          setTimeout(() => setIsPlayingAudio(false), 2000);
+          return; // Successfully played audio file
+        } catch (audioError) {
+          console.log('Error playing audio file, falling back to TTS:', audioError);
+          // Fall through to TTS fallback
+        }
+      }
+      
+      // Fallback to TTS: speak the correct answer (Russian word)
+      if (correctAnswer) {
+        await speakRussian(correctAnswer);
+      }
+      // TTS usually finishes quickly
+      setTimeout(() => setIsPlayingAudio(false), 1500);
     } catch (error) {
-      console.log('Error playing audio:', error);
+      console.error('Error playing audio/TTS:', error);
+      setIsPlayingAudio(false);
     }
   };
 
-  React.useEffect(() => {
-    return sound
-      ? () => {
-          sound.unloadAsync();
-        }
-      : undefined;
+  useEffect(() => {
+    return () => {
+      // Cleanup
+      if (sound) {
+        sound.unloadAsync();
+      }
+      stopSpeaking();
+    };
   }, [sound]);
 
   const handleSubmit = () => {
     if (userInput.trim() === '') return;
     
     setSubmitted(true);
-    const isCorrect = userInput.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+    // Compare without case sensitivity, but preserve Russian character case
+    const userAnswer = userInput.trim();
+    const correct = correctAnswer.trim();
+    // For Russian, we should do a case-insensitive comparison
+    const isCorrect = userAnswer.toLowerCase() === correct.toLowerCase() || 
+                      userAnswer === correct;
     
-    if (onAnswer) {
+    // Delay answer callback to allow visual feedback to show first
+    setTimeout(() => {
       onAnswer(isCorrect);
-    }
+    }, 300);
   };
 
   const getInputStyle = () => {
@@ -60,11 +109,21 @@ const ListenTypeComponent = ({
       <Text style={styles.instruction}>Listen and type what you hear</Text>
       
       <TouchableOpacity 
-        style={styles.audioButton} 
+        style={[styles.audioButton, isPlayingAudio && styles.audioButtonLoading]} 
         onPress={playAudio}
+        disabled={isPlayingAudio}
       >
-        <Ionicons name="volume-high" size={48} color="#4A90E2" />
-        <Text style={styles.audioText}>Play Audio</Text>
+        {isPlayingAudio ? (
+          <>
+            <ActivityIndicator size="large" color="#4A90E2" />
+            <Text style={styles.audioText}>Playing...</Text>
+          </>
+        ) : (
+          <>
+            <Ionicons name="volume-high" size={48} color="#4A90E2" />
+            <Text style={styles.audioText}>Play Audio</Text>
+          </>
+        )}
       </TouchableOpacity>
       
       <TextInput
@@ -119,6 +178,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 50,
     borderRadius: 20,
     marginBottom: 40,
+  },
+  audioButtonLoading: {
+    opacity: 0.7,
   },
   audioText: {
     marginTop: 10,
@@ -183,3 +245,4 @@ const styles = StyleSheet.create({
 });
 
 export default ListenTypeComponent;
+

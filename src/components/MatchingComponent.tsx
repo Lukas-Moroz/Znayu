@@ -1,19 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 
-const MatchingComponent = ({
+interface MatchingComponentProps {
+  leftColumnItems: string[];
+  rightColumnItems: string[];
+  correctPairs: Record<string, string>;
+  onComplete: (isCorrect: boolean) => void;
+}
+
+const MatchingComponent: React.FC<MatchingComponentProps> = ({
   leftColumnItems,
   rightColumnItems,
   correctPairs,
   onComplete,
 }) => {
-  const [selectedLeft, setSelectedLeft] = useState(null);
-  const [selectedRight, setSelectedRight] = useState(null);
-  const [matches, setMatches] = useState({});
+  const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
+  const [selectedRight, setSelectedRight] = useState<string | null>(null);
+  const [matches, setMatches] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
 
-  const handleLeftPress = (item) => {
+  // Reset state when exercise changes
+  useEffect(() => {
+    setSelectedLeft(null);
+    setSelectedRight(null);
+    setMatches({});
+    setSubmitted(false);
+  }, [leftColumnItems.join(','), rightColumnItems.join(',')]);
+
+  const handleLeftPress = (item: string) => {
     if (submitted) return;
+    
+    // If item is already selected, deselect it
+    if (selectedLeft === item) {
+      setSelectedLeft(null);
+      return;
+    }
+    
+    // If this item is already matched, don't allow selection
+    if (matches[item]) {
+      return;
+    }
+    
     setSelectedLeft(item);
     
     // If right item is already selected, create the match
@@ -24,8 +51,20 @@ const MatchingComponent = ({
     }
   };
 
-  const handleRightPress = (item) => {
+  const handleRightPress = (item: string) => {
     if (submitted) return;
+    
+    // If item is already selected, deselect it
+    if (selectedRight === item) {
+      setSelectedRight(null);
+      return;
+    }
+    
+    // If this item is already matched, don't allow selection
+    if (Object.values(matches).includes(item)) {
+      return;
+    }
+    
     setSelectedRight(item);
     
     // If left item is already selected, create the match
@@ -36,7 +75,7 @@ const MatchingComponent = ({
     }
   };
 
-  const createMatch = (left, right) => {
+  const createMatch = (left: string, right: string) => {
     setMatches(prev => ({
       ...prev,
       [left]: right
@@ -55,13 +94,14 @@ const MatchingComponent = ({
     
     const isCorrect = correctCount === Object.keys(correctPairs).length;
     
-    if (onComplete) {
+    // Delay answer callback to allow visual feedback to show first
+    setTimeout(() => {
       onComplete(isCorrect);
-    }
+    }, 300);
   };
 
-  const getLeftItemStyle = (item) => {
-    const baseStyle = [styles.matchItem];
+  const getLeftItemStyle = (item: string) => {
+    const baseStyle: any[] = [styles.matchItem];
     
     if (selectedLeft === item) {
       baseStyle.push(styles.selectedItem);
@@ -82,8 +122,8 @@ const MatchingComponent = ({
     return baseStyle;
   };
 
-  const getRightItemStyle = (item) => {
-    const baseStyle = [styles.matchItem];
+  const getRightItemStyle = (item: string) => {
+    const baseStyle: any[] = [styles.matchItem];
     
     if (selectedRight === item) {
       baseStyle.push(styles.selectedItem);
@@ -113,13 +153,13 @@ const MatchingComponent = ({
       <Text style={styles.instruction}>Tap items to match them</Text>
       
       <View style={styles.columnsContainer}>
-        <ScrollView style={styles.column}>
+        <ScrollView style={[styles.column, { marginRight: 7.5 }]}>
           {leftColumnItems.map((item, index) => (
             <TouchableOpacity
               key={index}
               style={getLeftItemStyle(item)}
               onPress={() => handleLeftPress(item)}
-              disabled={submitted || matches[item]}
+              disabled={submitted || !!matches[item]}
             >
               <Text style={styles.itemText}>{item}</Text>
               {matches[item] && (
@@ -129,7 +169,7 @@ const MatchingComponent = ({
           ))}
         </ScrollView>
         
-        <ScrollView style={styles.column}>
+        <ScrollView style={[styles.column, { marginLeft: 7.5 }]}>
           {rightColumnItems.map((item, index) => (
             <TouchableOpacity
               key={index}
@@ -172,7 +212,6 @@ const styles = StyleSheet.create({
   },
   columnsContainer: {
     flexDirection: 'row',
-    gap: 15,
     flex: 1,
   },
   column: {
@@ -231,3 +270,4 @@ const styles = StyleSheet.create({
 });
 
 export default MatchingComponent;
+

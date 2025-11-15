@@ -1,8 +1,16 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Module } from '../types/models';
 
-const LessonChoiceModal = ({ visible, module, onClose, onSelectMode }) => {
+interface LessonChoiceModalProps {
+  visible: boolean;
+  module: Module | null;
+  onClose: () => void;
+  onSelectMode: (mode: 'quick' | 'deep') => void;
+}
+
+const LessonChoiceModal: React.FC<LessonChoiceModalProps> = ({ visible, module, onClose, onSelectMode }) => {
   if (!module) return null;
 
   return (
@@ -206,3 +214,4 @@ const styles = StyleSheet.create({
 });
 
 export default LessonChoiceModal;
+

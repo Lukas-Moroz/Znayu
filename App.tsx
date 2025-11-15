@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import 'react-native-gesture-handler';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -9,14 +10,43 @@ import { StatusBar } from 'expo-status-bar';
 import HomeScreen from './src/screens/HomeScreen';
 import PacksScreen from './src/screens/PacksScreen';
 import ReviewScreen from './src/screens/ReviewScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
 import LessonEngineScreen from './src/screens/LessonEngineScreen';
 import LessonResultsScreen from './src/screens/LessonResultsScreen';
+import AlphabetLearningScreen from './src/screens/AlphabetLearningScreen';
+import SectionChoiceScreen from './src/screens/SectionChoiceScreen';
+import ReviewLessonScreen from './src/screens/ReviewLessonScreen';
 
 // Import Context
 import { UserProvider } from './src/context/UserContext';
+import { SettingsProvider } from './src/context/SettingsContext';
 
-const Tab = createBottomTabNavigator();
-const Stack = createStackNavigator();
+// Import Types
+import { Module, Section, Chapter, MissedQuestion } from './src/types/models';
+
+// Import TTS
+import { initializeTTS } from './src/utils/ttsPlayer';
+import { initializeAudio } from './src/utils/audioPlayer';
+
+// Define navigation param lists
+export type RootStackParamList = {
+  HomeMain: undefined;
+  AlphabetLearning: { section?: Section; chapter?: Chapter } | undefined;
+  SectionChoice: { module?: Module; chapter?: Chapter };
+  LessonEngine: { module?: Module; chapter?: Chapter; section?: Section | null; mode: 'quick' | 'deep' };
+  LessonResults: { score: { correct: number; total: number }; module?: Module; chapter?: Chapter; mode: 'quick' | 'deep' };
+  ReviewLesson: { missedQuestions: MissedQuestion[] };
+};
+
+export type RootTabParamList = {
+  Home: undefined;
+  Packs: undefined;
+  Review: undefined;
+  Profile: undefined;
+};
+
+const Tab = createBottomTabNavigator<RootTabParamList>();
+const Stack = createStackNavigator<RootStackParamList>();
 
 // Home Stack Navigator
 function HomeStack() {
@@ -25,6 +55,16 @@ function HomeStack() {
       <Stack.Screen 
         name="HomeMain" 
         component={HomeScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="AlphabetLearning" 
+        component={AlphabetLearningScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="SectionChoice" 
+        component={SectionChoiceScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen 
@@ -40,19 +80,38 @@ function HomeStack() {
           gestureEnabled: false 
         }}
       />
+      <Stack.Screen 
+        name="ReviewLesson" 
+        component={ReviewLessonScreen}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
   );
 }
 
 export default function App() {
+  // Initialize TTS and Audio on app start
+  useEffect(() => {
+    const init = async () => {
+      try {
+        await initializeAudio();
+        await initializeTTS();
+      } catch (error) {
+        console.error('Error initializing audio/TTS:', error);
+      }
+    };
+    init();
+  }, []);
+
   return (
+    <SettingsProvider>
     <UserProvider>
       <NavigationContainer>
         <StatusBar style="dark" />
         <Tab.Navigator
           screenOptions={({ route }) => ({
             tabBarIcon: ({ focused, color, size }) => {
-              let iconName;
+              let iconName: keyof typeof Ionicons.glyphMap;
 
               if (route.name === 'Home') {
                 iconName = focused ? 'home' : 'home-outline';
@@ -60,6 +119,10 @@ export default function App() {
                 iconName = focused ? 'cube' : 'cube-outline';
               } else if (route.name === 'Review') {
                 iconName = focused ? 'refresh-circle' : 'refresh-circle-outline';
+              } else if (route.name === 'Profile') {
+                iconName = focused ? 'person' : 'person-outline';
+              } else {
+                iconName = 'help-outline';
               }
 
               return <Ionicons name={iconName} size={size} color={color} />;
@@ -92,8 +155,15 @@ export default function App() {
             component={ReviewScreen}
             options={{ title: 'Review' }}
           />
+          <Tab.Screen 
+            name="Profile" 
+            component={ProfileScreen}
+            options={{ title: 'Profile' }}
+          />
         </Tab.Navigator>
       </NavigationContainer>
     </UserProvider>
+    </SettingsProvider>
   );
 }
+

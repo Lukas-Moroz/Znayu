@@ -3,27 +3,53 @@ import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet } from 're
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
 import { VOCAB_PACKS } from '../data/content';
+import { VocabPack } from '../types/models';
 
-const PacksScreen = () => {
-  const { userData, toggleVocabPack } = useUser();
+const PacksScreen: React.FC = () => {
+  const { userData, toggleVocabPack, adminMode, toggleAdminMode } = useUser();
 
-  const isPackActive = (packId) => {
+  const isPackActive = (packId: number): boolean => {
     return userData.active_vocab_packs.includes(packId);
   };
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Vocabulary Packs</Text>
-        <Text style={styles.subtitle}>
-          Add thematic vocabulary to your lessons
-        </Text>
+        <View style={styles.headerTop}>
+          <View style={styles.headerText}>
+            <Text style={styles.title}>Vocabulary Packs</Text>
+            <Text style={styles.subtitle}>
+              Add thematic vocabulary to your lessons
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.adminButton, adminMode && styles.adminButtonActive]}
+            onPress={toggleAdminMode}
+          >
+            <Ionicons 
+              name={adminMode ? "shield-checkmark" : "shield-outline"} 
+              size={20} 
+              color={adminMode ? "#10B981" : "#666"} 
+            />
+            <Text style={[styles.adminButtonText, adminMode && styles.adminButtonTextActive]}>
+              Admin
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {adminMode && (
+          <View style={styles.adminBanner}>
+            <Ionicons name="information-circle" size={16} color="#10B981" />
+            <Text style={styles.adminBannerText}>
+              Admin mode: All packs are unlocked
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.packsContainer}>
-        {VOCAB_PACKS.map((pack) => {
+        {VOCAB_PACKS.map((pack: VocabPack) => {
           const isActive = isPackActive(pack.pack_id);
-          const isLocked = userData.current_module < pack.prerequisite_module;
+          const isLocked = !adminMode && userData.current_module < pack.prerequisite_module;
 
           return (
             <View 
@@ -35,7 +61,7 @@ const PacksScreen = () => {
             >
               <View style={styles.packIcon}>
                 <Ionicons 
-                  name={pack.icon || "cube"} 
+                  name={(pack.icon as keyof typeof Ionicons.glyphMap) || "cube"} 
                   size={32} 
                   color={isLocked ? "#CCC" : "#4A90E2"} 
                 />
@@ -53,7 +79,7 @@ const PacksScreen = () => {
                   styles.packDescription,
                   isLocked && styles.packTextLocked
                 ]}>
-                  {pack.description || `${pack.word_count} words`}
+                  {pack.description || `${pack.word_count || 0} words`}
                 </Text>
 
                 {isLocked && (
@@ -99,6 +125,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  headerText: {
+    flex: 1,
+  },
   title: {
     fontSize: 28,
     fontWeight: '700',
@@ -108,6 +142,45 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#666',
+  },
+  adminButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  adminButtonActive: {
+    backgroundColor: '#D1FAE5',
+    borderColor: '#10B981',
+  },
+  adminButtonText: {
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  adminButtonTextActive: {
+    color: '#10B981',
+  },
+  adminBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    padding: 10,
+    backgroundColor: '#D1FAE5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  adminBannerText: {
+    marginLeft: 8,
+    fontSize: 13,
+    color: '#065F46',
+    fontWeight: '500',
   },
   packsContainer: {
     padding: 20,
@@ -180,3 +253,4 @@ const styles = StyleSheet.create({
 });
 
 export default PacksScreen;
+
